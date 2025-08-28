@@ -1,4 +1,4 @@
-# This is the code for my VPC
+//This is the code for my VPC
 
 resource "aws_vpc" "my-vpc" {
   cidr_block           = "172.120.0.0/16" // class B 65k ips
@@ -6,15 +6,15 @@ resource "aws_vpc" "my-vpc" {
   enable_dns_support   = true
   instance_tenancy     = "default"
   tags = {
-    Name       = "utc-Vpc"
+    Name       = "utc-VPC"
     env        = "Dev"
-    created_by = "sylvain"
     app-name   = "utc"
-    team       = "wdp"
+    Team       = "wdp"
+    created_by = "kayitesi"
   }
 }
 
-// Internet gateway
+// Internet gateway to put the vpc public
 
 resource "aws_internet_gateway" "gw" {
   vpc_id = aws_vpc.my-vpc.id
@@ -24,7 +24,7 @@ resource "aws_internet_gateway" "gw" {
   }
 }
 
-// This is the code for subnets (public subnets)
+// Public Subnet creation . The diff btwn the subnets is the route table
 
 
 resource "aws_subnet" "public1" {
@@ -32,7 +32,6 @@ resource "aws_subnet" "public1" {
   cidr_block              = "172.120.1.0/24" // class C 254 ips
   availability_zone       = "us-east-1a"
   map_public_ip_on_launch = true
-
 
   tags = {
     Name = "utc-public-sub1"
@@ -48,11 +47,10 @@ resource "aws_subnet" "public2" {
   tags = {
     Name = "utc-public-sub2"
   }
-
-  depends_on = [aws_vpc.my-vpc] #dependancy
+  depends_on = [aws_vpc.my-vpc] # dependancy "meta argument"
 }
 
-// Private subnets
+// Private subnets creation
 
 resource "aws_subnet" "private1" {
   vpc_id            = aws_vpc.my-vpc.id
@@ -74,56 +72,55 @@ resource "aws_subnet" "private2" {
   }
 }
 
-# Nat gateway
+# nat gateway
 
 resource "aws_eip" "eip" {
 
 }
+
 resource "aws_nat_gateway" "nat" {
   subnet_id     = aws_subnet.public1.id
   allocation_id = aws_eip.eip.id
   tags = {
     Name = "utc-NAT"
-    env  = "Dev"
+
   }
 }
 
-# Private route table
-
+# route table for private subnet
 
 resource "aws_route_table" "rtprivate" {
   vpc_id = aws_vpc.my-vpc.id
+
   route {
-    cidr_block = "0.0.0.0/0"
+    cidr_block = "0.0.0.0/0" # the internet
     gateway_id = aws_nat_gateway.nat.id
   }
 }
 
-#public route table 
+# route table for public subnet
 
 resource "aws_route_table" "rtpublic" {
   vpc_id = aws_vpc.my-vpc.id
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_nat_gateway.nat.id
+    gateway_id = aws_internet_gateway.gw.id
   }
 }
 
-
-# public  route table association
-
+# route table association public  
 
 resource "aws_route_table_association" "rta1" {
   subnet_id      = aws_subnet.public1.id
   route_table_id = aws_route_table.rtpublic.id
 }
-
 resource "aws_route_table_association" "rta2" {
   subnet_id      = aws_subnet.public2.id
   route_table_id = aws_route_table.rtpublic.id
 }
 
-# private route table association
+
+# route table association private 
 
 resource "aws_route_table_association" "rta3" {
   subnet_id      = aws_subnet.private1.id
@@ -133,4 +130,9 @@ resource "aws_route_table_association" "rta4" {
   subnet_id      = aws_subnet.private2.id
   route_table_id = aws_route_table.rtprivate.id
 }
+
+
+
+
+
 
